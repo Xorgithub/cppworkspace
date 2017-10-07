@@ -1,0 +1,32 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 10.00
+# Visual Studio 2008
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "linux_client", "linux_client.vcproj", "{B0F84ACC-AD9D-4F50-A79E-9EA296FFCEAD}"
+EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "epoll2", "..\epoll2\epoll2.vcproj", "{C41F5B36-8AA5-45FE-BD2B-BC027385BFD1}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Smartphone 2003 (ARMV4) = Debug|Smartphone 2003 (ARMV4)
+		Debug|Win32 = Debug|Win32
+		Release|Smartphone 2003 (ARMV4) = Release|Smartphone 2003 (ARMV4)
+		Release|Win32 = Release|Win32
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{B0F84ACC-AD9D-4F50-A79E-9EA296FFCEAD}.Debug|Smartphone 2003 (ARMV4).ActiveCfg = Debug|Win32
+		{B0F84ACC-AD9D-4F50-A79E-9EA296FFCEAD}.Debug|Win32.ActiveCfg = Debug|Win32
+		{B0F84ACC-AD9D-4F50-A79E-9EA296FFCEAD}.Debug|Win32.Build.0 = Debug|Win32
+		{B0F84ACC-AD9D-4F50-A79E-9EA296FFCEAD}.Release|Smartphone 2003 (ARMV4).ActiveCfg = Release|Win32
+		{B0F84ACC-AD9D-4F50-A79E-9EA296FFCEAD}.Release|Win32.ActiveCfg = Release|Win32
+		{B0F84ACC-AD9D-4F50-A79E-9EA296FFCEAD}.Release|Win32.Build.0 = Release|Win32
+		{C41F5B36-8AA5-45FE-BD2B-BC027385BFD1}.Debug|Smartphone 2003 (ARMV4).ActiveCfg = Debug|Win32
+		{C41F5B36-8AA5-45FE-BD2B-BC027385BFD1}.Debug|Win32.ActiveCfg = Debug|Win32
+		{C41F5B36-8AA5-45FE-BD2B-BC027385BFD1}.Debug|Win32.Build.0 = Debug|Win32
+		{C41F5B36-8AA5-45FE-BD2B-BC027385BFD1}.Release|Smartphone 2003 (ARMV4).ActiveCfg = Release|Win32
+		{C41F5B36-8AA5-45FE-BD2B-BC027385BFD1}.Release|Win32.ActiveCfg = Release|Win32
+		{C41F5B36-8AA5-45FE-BD2B-BC027385BFD1}.Release|Win32.Build.0 = Release|Win32
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+EndGlobal

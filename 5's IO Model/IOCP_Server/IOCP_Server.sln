@@ -1,0 +1,60 @@
+Microsoft Visual Studio Solution File, Format Version 10.00
+# Visual Studio 2008
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "IOCP_Server", "IOCP_Server\IOCP_Server.vcproj", "{10540501-DD79-4CB8-A6BA-AB869B6FF83C}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution Items", "{F0D9A031-F2BD-464D-B305-3DA52A7AA887}"
+	ProjectSection(SolutionItems) = preProject
+		IOCP_Server.vsd = IOCP_Server.vsd
+	EndProjectSection
+EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "CIOCPServer", "CIOCPServer\CIOCPServer.vcproj", "{AC141174-C7C0-4951-8F0E-3AF23D83F6CA}"
+EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "TestClient", "TestClient\TestClient.vcproj", "{928E8B37-30F4-48C7-B7B2-99A0E4C6184B}"
+EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "getpeername", "getpeername\getpeername.vcproj", "{5C159D10-CCBD-46B9-96B9-FFCB40D1A4A5}"
+EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "iocpdemo", "iocpdemo\iocpdemo.vcproj", "{43126F49-7BA7-4ED7-BF64-FBD8E581F13F}"
+EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "IOCP_Socket", "IOCP_Socket\IOCP_Socket.vcproj", "{33B9DA9C-E480-4F37-8493-D308D14C30BB}"
+EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "IOCP_Client", "IOCP_Client\IOCP_Client.vcproj", "{3E8AE62D-4879-4D9D-9263-44E58EBC5F67}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Win32 = Debug|Win32
+		Release|Win32 = Release|Win32
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{10540501-DD79-4CB8-A6BA-AB869B6FF83C}.Debug|Win32.ActiveCfg = Debug|Win32
+		{10540501-DD79-4CB8-A6BA-AB869B6FF83C}.Debug|Win32.Build.0 = Debug|Win32
+		{10540501-DD79-4CB8-A6BA-AB869B6FF83C}.Release|Win32.ActiveCfg = Release|Win32
+		{10540501-DD79-4CB8-A6BA-AB869B6FF83C}.Release|Win32.Build.0 = Release|Win32
+		{AC141174-C7C0-4951-8F0E-3AF23D83F6CA}.Debug|Win32.ActiveCfg = Debug|Win32
+		{AC141174-C7C0-4951-8F0E-3AF23D83F6CA}.Debug|Win32.Build.0 = Debug|Win32
+		{AC141174-C7C0-4951-8F0E-3AF23D83F6CA}.Release|Win32.ActiveCfg = Release|Win32
+		{AC141174-C7C0-4951-8F0E-3AF23D83F6CA}.Release|Win32.Build.0 = Release|Win32
+		{928E8B37-30F4-48C7-B7B2-99A0E4C6184B}.Debug|Win32.ActiveCfg = Debug|Win32
+		{928E8B37-30F4-48C7-B7B2-99A0E4C6184B}.Debug|Win32.Build.0 = Debug|Win32
+		{928E8B37-30F4-48C7-B7B2-99A0E4C6184B}.Release|Win32.ActiveCfg = Release|Win32
+		{928E8B37-30F4-48C7-B7B2-99A0E4C6184B}.Release|Win32.Build.0 = Release|Win32
+		{5C159D10-CCBD-46B9-96B9-FFCB40D1A4A5}.Debug|Win32.ActiveCfg = Debug|Win32
+		{5C159D10-CCBD-46B9-96B9-FFCB40D1A4A5}.Debug|Win32.Build.0 = Debug|Win32
+		{5C159D10-CCBD-46B9-96B9-FFCB40D1A4A5}.Release|Win32.ActiveCfg = Release|Win32
+		{5C159D10-CCBD-46B9-96B9-FFCB40D1A4A5}.Release|Win32.Build.0 = Release|Win32
+		{43126F49-7BA7-4ED7-BF64-FBD8E581F13F}.Debug|Win32.ActiveCfg = Debug|Win32
+		{43126F49-7BA7-4ED7-BF64-FBD8E581F13F}.Debug|Win32.Build.0 = Debug|Win32
+		{43126F49-7BA7-4ED7-BF64-FBD8E581F13F}.Release|Win32.ActiveCfg = Release|Win32
+		{43126F49-7BA7-4ED7-BF64-FBD8E581F13F}.Release|Win32.Build.0 = Release|Win32
+		{33B9DA9C-E480-4F37-8493-D308D14C30BB}.Debug|Win32.ActiveCfg = Debug|Win32
+		{33B9DA9C-E480-4F37-8493-D308D14C30BB}.Debug|Win32.Build.0 = Debug|Win32
+		{33B9DA9C-E480-4F37-8493-D308D14C30BB}.Release|Win32.ActiveCfg = Release|Win32
+		{33B9DA9C-E480-4F37-8493-D308D14C30BB}.Release|Win32.Build.0 = Release|Win32
+		{3E8AE62D-4879-4D9D-9263-44E58EBC5F67}.Debug|Win32.ActiveCfg = Debug|Win32
+		{3E8AE62D-4879-4D9D-9263-44E58EBC5F67}.Debug|Win32.Build.0 = Debug|Win32
+		{3E8AE62D-4879-4D9D-9263-44E58EBC5F67}.Release|Win32.ActiveCfg = Release|Win32
+		{3E8AE62D-4879-4D9D-9263-44E58EBC5F67}.Release|Win32.Build.0 = Release|Win32
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+EndGlobal

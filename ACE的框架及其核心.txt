@@ -1,0 +1,1689 @@
+ACE设计框架和基础模块的关联
+
+*一、案例描述
+
+视频电警开发，是基于ACE框架上的一次重复开发，本文档拟对ACE框架做一个梳理，以期对他人进行基于ace的开发有所帮助。
+
+*二、系统安装
+
+ACE的安装是一件比较麻烦的事情，这里简单的记录了我在VS2005下安装ACE的过程，希望能给大家一个参考。
+
+安装环境：
+
+l 操作系统：Windows XP 专业版
+
+l 编译环境：VS2005中文版
+
+l ACE版本：ACE-5.5.1
+
+安装过程：
+
+a) 下载安装包。Ace的安装文件可以在http://download.dre.vanderbilt.edu/中下载到，由于我是在windows环境下安装并且不需要TAO等其它库，便下载了ACE-5.5.1.zip。
+
+b) 下载完成后将其解压。我的解压路径为D:\Develop\ACE_wrappers。
+
+c) 设置环境变量
+
+d) 在操作系统添加一个名为ACE_ROOT的用户环境变量，值为刚才ace的解压路径D:\Develop\ACE_wrappers。
+
+e) 添加用户的Path环境变量，值为%ACE_ROOT%\lib，这样才能保证系统能找到ace生成的动态连接库。
+
+f) 设置VS2005的C++开发项目信息，依次打开菜单 工具-选项-项目和解决方案-VC++目录 ，在右侧目录列表中选择"包含目录"，添加$(ACE_ROOT)，在右侧目录列表中选择"库文件"，添加$(ACE_ROOT)\lib。
+
+g) 编译ACE，在ACE_ROOT\ace目录创建一个名为 config.h的文件。编辑文件并加入以下内容:
+#define ACE_HAS_STANDARD_CPP_LIBRARY 1
+#include "ace/config-win32.h"
+其中第一行是因为我想用标准C++跨平台，第二行则是必须要的，表明当前是在win32的环境下进行ace的项目。
+
+h) 进入ACE_ROOT\ace目录中，能发现ACE现在已经带VS2005的编译项目了，直接打开ace_vc8.sln，直接生成ACE项目的Debug版和Release版，编译过程还比较快，大概就几分钟的样子。编译链接完成后，在ACE_ROOT\lib中一共生成了四个文件，分别是"ACE.dll"，"ACE.lib"， "ACEd.dll"，"ACEd.lib"，其中带"d"表示的是Debug版本。
+
+i) 检验 ACE
+
+j) 打开VS2005，建立一个空项目，将ACE程序员手册中的第一个程序拷入其中。
+
+k) 配置属性->链接器->常规->附加依赖项，添入ACEd.lib。
+
+l) 编译，如果不出意外的话就能看到你的ace版的" hello world"啦。
+
+注意：
+ACE项目的字符集设置是"未设置"，而VS2005的c++项目默认字符集是"使用 Unicode 字 符集"，如果用到了ACE链接库时需要将字符集改为"未设置"（在"项目属性->配置属性->项目默认值->字符集"中配置），否则可能出现链接错误。
+
+至此，ACE的安装工作便算完成.下面是完成unicode编译的ACE设置:
+
+*三、ACE的使用及其核心模块讲解等
+
+下面为本人在使用ACE中遇到的一些问题的汇总，只介绍了大体的思路，具体的细节还需进佐证。
+
+1. ACE配置模块的使用
+
+就一个正常项目而言，一个配置文件是必不可少的，那就先从这里入手了。linux/unix 程序可能经常用到命令行方式，不过我还是比较喜欢windows 的 ini 格式的，当然，有xml 的更好，不过 ACE 里暂时没有提供。配置文件的使用很简单，ACE 提供的类也很友好。代码如下:
+
+wps_clip_image-914
+
+2. ACE的互斥管理机制
+
+2.1、ACE Lock类属
+
+锁类属包含的类包装简单的锁定机制，比如互斥体、信号量、读／写互斥体和令牌等。这里我就以互斥体为例简单的介绍一下其使用方法，对其它的锁类进行一些简单的说明。
+
+互斥体的使用
+
+互斥体用于保护共享的易变代码，也就是全局或静态数据。这样的数据必须通过互斥体进行保护，以防止它们在多个线程同时访问时损坏。在ACE中可以通过ACE_Thread_Mutex实现线程的访问互斥，下面的例子演示ACE_Thread_Mutex类的使用。
+
+#include "ace/Thread.h"
+#include "ace/Synch.h"
+#include <iostream>
+using namespace std;
+
+ACE_Thread_Mutex mutex;
+void* Thread1(void *arg)
+{
+    mutex.acquire();
+    ACE_OS::sleep(3);
+    cout<<endl<<"hello thread1"<<endl;
+    mutex.release();
+return NULL;
+}
+void* Thread2(void *arg)
+{
+    mutex.acquire();
+    cout<<endl<<"hello thread2"<<endl;
+    mutex.release();
+return NULL;
+}
+int main(int argc, char *argv[])
+{
+    ACE_Thread::spawn((ACE_THR_FUNC)Thread1);
+//Thread2 比Thread1晚创建1秒钟，故后尝试获取互斥体
+    ACE_OS::sleep(1);
+    ACE_Thread::spawn((ACE_THR_FUNC)Thread2);
+while(true)
+        ACE_OS::sleep(10);    return 0;
+}
+
+ACE_Thread_Mutex主要有两个方法：
+
+acquire()：用来获取互斥体，如果无法获取，将阻塞至获取到为止。
+
+release()：用来释放互斥体，从而使自己或者其它线程能够获取互斥体。
+
+当线程要访问共享资源时，首先调用acquire()方法获取互斥体，从而获取对改互斥体所保护的共享资源的唯一访问权限，访问结束时调用释放互斥体，使得其它线程能获取共享资源的访问权限。
+
+在此例中，本来Thread2的打印消息在Thread1之前，但由于Thread1先获得互斥体，故Thread2只有待Thread1结束后才能进入临界区。读者朋友们可以通过将ACE_Thread_Mutex替换为ACE_NULL_Mutex看一下不加锁的执行结果。
+
+ACE Lock类属简介,列表如下：
+
+名字
+
+描述
+
+ACE_Mutex
+
+封装互斥机制（根据平台，可以是mutex_t、pthread_mutex_t等等）的包装类，用于提供简单而有效的机制来使对共享资源的访问序列化。它与二元信号量（binary semaphore）的功能相类似。可被用于线程和进程间的互斥。
+
+ACE_Thread_Mutex
+
+可用于替换ACE_Mutex，专用于线程同步。
+
+ACE_Process_Mutex
+
+可用于替换ACE_Mutex，专用于进程同步。
+
+ACE_NULL_Mutex
+
+提供了ACE_Mutex接口的"无为"（do-nothing）实现，可在不需要同步时用作替换。
+
+ACE_RW_Mutex
+
+封装读者／作者锁的包装类。它们是分别为读和写进行获取的锁，在没有作者在写的时候，多个读者可以同时进行读取。
+
+ACE_RW_Thread_Mutex
+
+可用于替换ACE_RW_Mutex，专用于线程同步。
+
+ACE_RW_Process_Mutex
+
+可用于替换ACE_RW_Mutex，专用于进程同步。
+
+ACE_Semaphore
+
+这些类实现计数信号量，在有固定数量的线程可以同时访问一个资源时很有用。在OS不提供这种同步机制的情况下，可通过互斥体来进行模拟。
+
+ACE_Thread_Semaphore
+
+应被用于替换ACE_Semaphore，专用于线程同步。
+
+ACE_Process_Semaphore
+
+应被用于替换ACE_Semaphore，专用于进程同步。
+
+ACE_Token
+
+提供"递归互斥体"（recursive mutex），也就是，当前持有某令牌的线程可以多次重新获取它，而不会阻塞。而且，当令牌被释放时，它确保下一个正阻塞并等待此令牌的线程就是下一个被放行的线程。
+
+ACE_Null_Token
+
+令牌接口的"无为"（do-nothing）实现，在你知道不会出现多个线程时使用。
+
+ACE_Lock
+
+定义锁定接口的接口类。一个纯虚类，如果使用的话，必须承受虚函数调用开销。
+
+ACE_Lock_Adapter
+
+基于模板的适配器，允许将前面提到的任意一种锁定机制适配到ACE_Lock接口。
+
+可以简单的分为以下几类：
+
+· 互斥锁
+互斥锁（通常称为"互斥体"或"二元信号量"）用于保护多线程控制并发访问的共享资源的完整性。互斥体通过定义临界区来序列化多线程控制的执行，在临界区中每一时刻只有一个线程在执行它的代码。互斥体简单而高效（时间和空间）。
+ACE线程库提供了Mutex式的类（是一组互斥体对象，拥有类似的接口），他是一种简单而高效的类型是"非递归"互斥体。非递归互斥体不允许当前拥有互斥体的线程在释放它之前重新获取它。否则，将会立即发生死锁。递归互斥体在ACE Recursive_Thread_Mutex类中可移植地实现。
+
+· 读者/作者锁
+读者/作者锁与互斥体相类似。例如，获取读者/作者锁的线程也必须释放它。多个线程可同时获取一个读者/作者锁用于读，但只有一个线程可以获取该锁用于写。当互斥体保护的资源用于读远比用于写要频繁时，读者/作者互斥体有助于改善并发的执行。
+ACE线程库提供了一个叫作RW_Mutex的类，在C++封装类中可移植地实现了读者/作者锁的语义。读者/作者锁将优先选择权给作者。因而，如果有多个读者和一个作者在锁上等待，作者将会首先获取它。
+
+计数信号量
+
+在概念上，计数信号量是可以原子地增减的整数。如果线程试图减少一个值为零的信号量的值，它就会阻塞，直到另一个线程增加该信号量的值。
+计数信号量用于追踪共享程序状态的变化。它们记录某种特定事件的发生。因为信号量维护状态，它们允许线程根据该状态来作决定，即使事件是发生在过去。
+信号量比互斥体效率要低，但是，它们要更为通用，因为它们无需被最初获取它们的同一线程获取和释放。这使得它们能够用于异步的执行上下文中（比如信号处理器）。ACE线程库提供一个叫作Semaphore的类来可移植地在C++包装类中实现信号量语义。
+
+2.2、ACE Guard类属
+
+与C一级的互斥体API相比较，Mutex包装为同步多线程控制提供了一种优雅的接口。但是，Mutex潜在地容易出错，因为程序员有可能忘记调用release方法（当然，C级的互斥体API更容易出错）。这可能由于程序员的疏忽或是C++异常的发生而发生，然而，其导致及其严重的后果--死锁。
+
+因此，为改善应用的健壮性，ACE同步机制有效地利用C++类构造器和析构器的语义来确保Mutex锁被自动获取和释放。
+
+ACE提供了一个称为Guard、Write_Guard和Read_Guard的类族，确保在进入和退出C++代码块时分别自动获取和释放锁。
+
+Guard类是最基本的守卫机制，定义可以简化如下（实际定义比这相对要复杂而完善一点）：
+
+template <class LOCK>
+class Guard
+{
+public:
+    Guard (LOCK &l): lock_ (&l){ lock_.acquire (); }
+    ?Guard (void) {    lock_.release (); }
+private:
+    LOCK lock_;
+}
+
+Guard类的对象定义一"块"代码，在其上锁被自动获取，并在退出块时自动释放，即使是程序抛异常也能保证自动解锁。这种机制也能为Mutex、RW_Mutex和Semaphore同步封装工作。
+
+对于读写锁，由于加锁接口不一样，ace也提供了相应的Read_Guard和Write_Guard类，Read_Guard和Write_Guard类有着与Guard类相同的接口。但是，它们的acquire方法分别对锁进行读和写。
+
+缺省地， Guard类构造器将会阻塞程序，直到锁被获取。会有这样的情况，程序必须使用非阻塞的acquire调用（例如，防止死锁）。因此，可以传给ACE Guard的构造器第二个参数（请参看原始代码，而不是我这里的简化代码），指示它使用锁的try_acquire方法，而不是acquire。随后调用者可以使用Guard的locked方法来原子地测试实际上锁是否已被获取。
+
+用Guard重写上一节的Thread1方法如下（注释了的部分是原有代码）：
+
+void* Thread1(void *arg)
+{
+    ACE_Guard<ACE_Thread_Mutex> guard(mutex);
+    //mutex.acquire();
+    ACE_OS::sleep(3);
+    cout<<endl<<"hello thread1"<<endl;
+    //mutex.release();
+    return NULL;
+}
+
+相比较而言，使用Guard更加简洁，并且会自动解锁，免除了一部分后顾之忧。
+
+注意：
+
+Guard只能帮你自动加解锁，并不能解决死锁问题，特别是对于那些非递归的互斥体来说使用Guard尤其要注意防止死锁。
+
+Guard是在Guard变量析构时解锁，如果在同一函数中两次对同一互斥体变量使用Guard要注意其对象生命周期，否则容易造成死锁。
+
+2.3、ACE Condition类属
+
+ACE Condition类属（条件变量）提供风格与互斥体、读者/作者锁和计数信号量不同的锁定机制。当持有锁的线程在临界区执行代码时，这三种机制让协作线程进行等待。相反，条件变量通常被一个线程用于使自己等待，直到一个涉及共享数据的条件表达式到达特定的状态。当另外的协作线程指示共享数据的状态已发生变化，调度器就唤醒一个在该条件变量上挂起的线程。于是新唤醒的线程重新对它的条件表达式进行求值，如果共享数据已到达合适状态，就恢复处理。
+
+ACE线程库提供一个叫作Condition的类来可移植地在C++包装类中实现条件变量语义。定义方式如下：
+ACE_Thread_Mutex mutex;
+ACE_Condition<ACE_Thread_Mutex> cond(mutex);
+
+该对象有两个常用方法。
+
+signal()//向使用该条件变量的其它线程发送满足条件信号。
+
+wait()//查询是否满足条件，如果满足，则继续往下执行；如果不满足条件，主线程就等待在此条件变量上。条件变量随即自动释放互斥体，并使主线程进入睡眠。
+
+条件变量总是与互斥体一起使用。这是一种可如下描述的一般模式：
+
+while( expression NOT TRUE ) wait on condition variable;
+
+条件变量不是用于互斥，往往用于线程间的协作，下面例子演示了通过条件变量实现线程协作。
+
+#include "ace/Thread.h"
+#include "ace/Synch.h"
+#include <iostream>
+using namespace std;
+ACE_Thread_Mutex mutex;
+ACE_Condition<ACE_Thread_Mutex> cond(mutex);
+void* worker(void *arg)
+{
+    ACE_OS::sleep(2);        //保证eater线程的cond.wait()在worker线程的cond.signal()先执行
+    mutex.acquire();
+    ACE_OS::sleep(1);
+    cout<<endl<<"produce"<<endl;
+    cond.signal();
+    mutex.release();
+return NULL;
+}
+void* eater(void *arg)
+{
+    mutex.acquire();
+    cond.wait();
+    cout<<endl<<"eat"<<endl;
+    mutex.release();
+return NULL;
+}
+int main(int argc, char *argv[])
+{
+    ACE_Thread::spawn((ACE_THR_FUNC)worker);
+    ACE_OS::sleep(1);
+    ACE_Thread::spawn((ACE_THR_FUNC)eater);
+while(true)
+        ACE_OS::sleep(10);
+
+return 0;
+}
+
+这个例子中，首先创建了一个生产者线程worker和一个消费者线程eater，消费者线程执行比生产者快，两个线程不加限制并发执行会导致先消费，后生产的情况（只是加互斥锁也不能很好的解决，以为无法保证生产者一定先获得互斥体）。所以这里通过条件变量的通知方式保证线程的顺序执行：
+
+a) 消费者线程获取互斥体，等待条件满足（生产者生产了食品）。同时释放互斥体，进入休眠状态。
+
+b) 生产者获取互斥体（虽然是消费者先获取的互斥体，但消费者调用的wait函数会释放消费者的互斥体），生产商品后，通过条件变量发送信号（调用signal函数）通知消费者生产完成，结束生产过程，释放互斥体。
+
+c) 消费者收到信号后，重新获取互斥体，完成消费过程。
+
+使用条件变量的注意事项：
+
+l 条件变量必须和互斥体一起使用，也就是说使用前必须加锁（调用互斥体acquire函数），使用完后需释放互斥体。
+
+条件变量中的wait()和signal()成对使用的话，必须保证wait()函数在signal()之前执行，这样才能保证wait()能收到条件满足通知，不至于一直等待下去，形成死锁（worker线程中的第一句话就是起的这个作用）。
+
+3. ACE的线程管理机制
+
+2.1、ACE Lock类属
+
+不同的操作系统下用c++进行过多线程编程的朋友对那些线程处理的API可能深有体会，这些API提供了相同或是相似的功能，但是它们的API的差别却极为悬殊。
+
+ACE_Thread提供了对不同OS的线程调用的简单包装，通过一个通用的接口进行处理线程创建、挂起、取消和删除等问题。
+
+一． 线程入口函数
+
+所有线程必须从一个指定的函数开始执行，该函数称为线程函数，它必须具有下列原型：
+void* worker(void *arg) {}
+该函数输入一个void *型的参数，可以在创建线程时传入。
+注意：
+
+所有的线程启动函数（方法）必须是静态的或全局的（就如同直接使用OS线程API时所要求的一样）。
+
+二．线程基本操作
+
+1．创建一个线程
+
+一个进程的主线程是由操作系统自动生成，如果你要让一个主线程创建额外的线程，可以通过ACE_Thread::spawn()实现，该函数一般的使用方式如下：
+
+    ACE_thread_t threadId;
+    ACE_hthread_t threadHandle;
+    ACE_Thread::spawn(
+        (ACE_THR_FUNC)worker,        //线程执行函数
+        NULL,                        //执行函数参数
+        THR_JOINABLE | THR_NEW_LWP,
+        &threadId,
+        &threadHandle
+        );
+
+为了简化，也可以使用其默认参数使用ACE_Thread::spawn((ACE_THR_FUNC)worker) 来创建一个worker的线程。
+
+另外，ACE还提供了ACE_Thread::spawn_n函数来创建多个线程。
+
+2．终止线程
+
+在线程函数体中ACE_Thread::exit()调用即可终止线程执行。
+
+3．设定线程的相对优先级
+
+当一个线程被首次创建时，它的优先级等同于它所属进程的优先级。一个线程的优先级是相对于其所属的进程的优先级而言的。可以通过调用ACE_Thread::setprio函数改变线程的相对优先级，该函数的调用方式如下：
+ACE_Thread::setprio(threadHandle,ACE_DEFAULT_THREAD_PRIORITY)
+
+4．挂起及恢复线程
+
+挂起线程可以通过来实现，它能暂停一个线程的执行，其调用方式如下ACE_Thread::suspend(threadHandle) 。
+相应的，可以通过ACE_Thread::resume(threadHandle) 恢复被挂起的线程的执行。
+
+5．等待线程结束
+
+在主函数中调用ACE_Thread::join(threadHandle)可阻塞主函数，直道线程结束才能继续执行。
+
+6．停止线程
+
+在主函数中调用ACE_Thread::cancel (threadHandle)可停止线程的执行（在Unix底下可以，而在windows下好像不起作用，有待检验）。
+
+三．程序示例
+
+下面例子演示了如何用ace创建一个线程。
+
+#include "ace/Thread.h"
+#include "ace/Synch.h"
+#include <iostream>
+using namespace std;
+void* worker(void *arg)
+{
+    for(int i=0;i<10;i++)
+    {
+        ACE_OS::sleep(1);
+        cout<<endl<<"hello world"<<endl;
+    }
+    return NULL;
+}
+int main(int argc, char *argv[])
+{
+    ACE_thread_t threadId;
+    ACE_hthread_t threadHandle;
+    ACE_Thread::spawn(
+        (ACE_THR_FUNC)worker,        //线程执行函数
+        NULL,                        //执行函数参数
+        THR_JOINABLE | THR_NEW_LWP,
+        &threadId,
+        &threadHandle
+        );
+    ACE_Thread::join(threadHandle);
+    return 0;
+}
+
+在这个简单的例子中，创建了1个工作者线程，执行程序中定义的worker()函数。然后阻塞主函数，待线程结束后退出程序。
+
+4. ACE的网络通讯机制
+
+4.1、TCP通讯
+
+传输控制协议TCP（Transmission Control Protocol）：TCP提供可靠的、面向连接的运输服务，用于高可靠性数据的传输。TCP协议的可靠性是指保证每个tcp报文能按照发送顺序到达客户端。
+
+Tcp通信过程一般为如下步骤：
+
+a) 服务器绑定端口，等待客户端连接。
+
+b) 客户端通过服务器的ip和服务器绑定的端口连接服务器。
+
+c) 服务器和客户端通过网络建立一条数据通路，通过这条数据通路进行数据交互。
+
+常用API：
+
+1. ACE_INET_Addr类。
+
+ACE"地址"类ACE_Addr的子类，表示TCP/IP和UDP/IP的地址。它通常包含机器的ip和端口信息，通过它可以定位到所通信的进程。
+
+定义方式：
+ACE_INET_Addr addInfo(3000,"192.168.1.100");
+常用方法：
+
+l get_host_name    获取主机名
+
+l get_ip_address    获取ip地址
+
+l get_port_number    获取端口号
+
+2. ACE_SOCK_Acceptor类。
+
+服务期端使用，用于绑定端口和被动地接受连接。
+常用方法：
+
+l open 绑定端口
+
+l accept建立和客户段的连接
+
+3. ACE_SOCK_Connector类。
+
+客户端使用，用于主动的建立和服务器的连接。
+常用方法：
+
+l connect()    建立和服务期的连接。
+
+4. ACE_SOCK_Stream类。
+
+客户端和服务器都使用，表示客户段和服务器之间的数据通路。
+常用方法：
+
+l send ()    发送数据
+
+l recv ()    接收数据
+
+l close()    关闭连接（实际上就是断开了socket连接）。
+
+代码示例：
+
+下面例子演示了如何如何用ACE创建TCP通信的Server端。
+
+#include "ace/SOCK_Acceptor.h"
+#include "ace/SOCK_Stream.h"
+#include "ace/INET_Addr.h"
+#include "ace/OS.h"
+#include <string>
+#include <iostream>
+using namespace std;
+int main(int argc, char *argv[])
+{
+    ACE_INET_Addr port_to_listen(3000);        //绑定的端口
+    ACE_SOCK_Acceptor acceptor;
+    if (acceptor.open (port_to_listen, 1) == -1)     //绑定端口
+    {
+        cout<<endl<<"bind port fail"<<endl;
+        return -1;
+    }
+    while(true)
+    {
+        ACE_SOCK_Stream peer;        //和客户端的数据通路
+        ACE_Time_Value timeout (10, 0);
+        if (acceptor.accept (peer) != -1)    //建立和客户端的连接
+        {
+            cout<<endl<<endl<<"client connect. "<<endl;
+            char buffer[1024];
+            ssize_t bytes_received;
+            ACE_INET_Addr raddr;
+            peer.get_local_addr(raddr);
+            cout<<endl<<"local port\t"<<raddr.get_host_name()<<"\t"<<raddr.get_port_number()<<endl;
+while ((bytes_received =
+                peer.recv (buffer, sizeof(buffer))) != -1)    //读取客户端发送的数据
+            {
+                peer.send(buffer, bytes_received);    //对客户端发数据
+            }
+            peer.close ();
+        }
+    }
+    return 0;
+}
+
+这个例子实现的功能很简单，服务器端绑定3000号端口，等待一个客户端的连接，然后将从客户端读取的数据再次转发给客户端，也就是实现了一个EchoServer的功能。
+
+相应的客户端程序也比较简单，代码如下：
+
+#include <ace/SOCK_Stream.h>
+#include <ace/SOCK_Connector.h>
+#include <ace/INET_Addr.h>
+#include <ace/Time_Value.h>
+#include <string>
+#include <iostream>
+using namespace std;
+int main(int argc, char *argv[])
+{
+    ACE_INET_Addr addr(3000,"127.0.0.1");
+    ACE_SOCK_Connector connector;   
+    ACE_Time_Value timeout(5,0);
+    ACE_SOCK_Stream peer;
+    if(connector.connect(peer,addr,&timeout) != 0)
+    {
+        cout<<"connection failed !"<<endl;
+        return 1;
+    }
+    cout<<"conneced !"<<endl;
+    string s="hello world";
+    peer.send(s.c_str(),s.length());    //发送数据
+    cout<<endl<<"send:\t"<<s<<endl;
+    ssize_t bc=0;            //接收的字节数
+    char buf[1024];
+    bc=peer.recv(buf,1024,&timeout);    //接收数据
+    if(bc>=0)
+    {
+        buf[bc]='\0';
+        cout<<endl<<"rev:\t"<<buf<<endl;
+    }
+    peer.close();
+    return 0;
+}
+
+下表给出了服务器端和客户端的传输过程的比较：
+
+操作
+
+客户端
+
+服务器端
+
+初始化
+
+不需要
+
+调用acceptor.open()绑定端口
+
+建立连接
+
+调用connector.connect()方法
+
+调用acceptor.accept()方法
+
+传输数据
+
+发送：调用peer.recv()方法
+接收：调用peer.send()方法
+
+关闭连接
+
+调用peer.close()方法
+
+4.2、UDP服务。
+
+在ace中，通过ACE_SOCK_Dgram类提供udp通信服务，ACE_SOCK_Dgram和ACE_SOCK_Stream的API非常类似，一样提供了send，recv及close等常用操作，这里就不再累述了。
+
+udp通信时无需像tcp那样建立连接和关闭连接，tcp编程时需要通过accept和connect来建立连接，而udp通信省略了这一步骤，相对来说编程更为简单。
+
+由于udp通信时无建立连接，服务器端不能像Tcp通信那样在建立连接的时候就获得客户端的地址信息，故服务器端不能主动对客户端发送信息（不知道客户端的地址），只有等到收到客户端发送的udp信息时才能确定客户端的地址信息，从而进行通信。
+
+udp通信过程如下：
+
+l 服务器端绑定一固定udp端口，等待接收客户端的通信。
+
+l 客户端通过服务器的ip和地址信息直接对服务器端发送消息。
+
+l 服务器端收到客户端发送的消息后获取客户端的ip和端口信息，通过该地址信息和客户端通信。
+
+下面代码为EchoServer的udp版：
+
+//server.cpp
+#include <ace/SOCK_Dgram.h>
+#include <ace/INET_Addr.h>
+#include <ace/Time_Value.h>
+#include <string>
+#include <iostream>
+using namespace std;
+int main(int argc, char *argv[])
+{
+    ACE_INET_Addr port_to_listen(3000);    //绑定的端口
+    ACE_SOCK_Dgram peer(port_to_listen);    //通信通道    char buf[100];
+    while(true)
+    {
+        ACE_INET_Addr remoteAddr;    //所连接的远程地址
+        int bc = peer.recv(buf,100,remoteAddr);    //接收消息，获取远程地址信息
+        if( bc != -1)
+        {
+            string s(buf,bc);
+            cout<<endl<<"rev:\t"<<s<<endl;
+        }
+        peer.send(buf,bc,remoteAddr);    //和远程地址通信
+    }    return 0;
+}
+
+相应的客户端程序如下：
+
+//client.cpp
+#include <ace/SOCK_Dgram.h>
+#include <ace/INET_Addr.h>
+#include <ace/Time_Value.h>
+#include <string>
+#include <iostream>
+using namespace std;
+int main(int argc, char *argv[])
+{
+    ACE_INET_Addr remoteAddr(3000,"127.0.0.1");    //所连接的远程地址
+    ACE_INET_Addr localAddr;    //本地地址信息
+    ACE_SOCK_Dgram peer(localAddr);    //通信通道
+    peer.send("hello",5,remoteAddr);    //发送消息
+    char buf[100];
+    int bc = peer.recv(buf,100,remoteAddr);    //接收消息
+    if( bc != -1)
+    {
+        string s(buf,bc);
+        cout<<endl<<"rev:\t"<<s<<endl;
+    }
+    return 0;
+}
+
+和tcp编程相比，udp无需通过acceptor，connector来建立连接，故代码相对tcp编程来说要简单许多。另外，由于udp是一种无连接的通信方式，ACE_SOCK_Dgram的实例对象中无法保存远端地址信息（保存了本地地址信息），故通信的时候需要加上远端地址信息。
+
+5. ACE的设计模式
+
+5.1、主动对象模式
+
+主动对象模式用于降低方法执行和方法调用之间的耦合。该模式描述了另外一种更为透明的任务间通信方法。
+
+传统上，所有的对象都是被动的代码段，对象中的代码是在对它发出方法调用的线程中执行的，当方法被调用时，调用线程将阻塞，直至调用结束。而主动对象却不一样。这些对象具有自己的命令执行线程，主动对象的方法将在自己的执行线程中执行，不会阻塞调用方法。
+
+例如，设想对象"A"已在你的程序的main()函数中被实例化。当你的程序启动时，OS创建一个线程，以从main()函数开始执行。如果你调用对象A的任何方法，该线程将"流过"那个方法，并执行其中的代码。一旦执行完成，该线程返回调用该方法的点并继续它的执行。但是，如果"A"是主动对象，事情就不是这样了。在这种情况下，主线程不会被主动对象借用。相反，当"A"的方法被调用时，方法的执行发生在主动对象持有的线程中。另一种思考方法：如果调用的是被动对象的方法（常规对象），调用会阻塞（同步的）；而另一方面，如果调用的是主动对象的方法，调用不会阻塞（异步的）。
+
+由于主动对象的方法调用不会阻塞，这样就提高了系统响应速度，在网络编程中是大有用武之地的。
+
+在这里我们将一个"Logger"（日志记录器）对象对象为例来介绍如何将一个传统对象改造为主动对象，从而提高系统响应速度。
+
+Logger的功能是将一些系统事件的记录在存储器上以备查询，由于Logger使用慢速的I/O系统来记录发送给它的消息，因此对Logger的操作将会导致系统长时间的等待。
+
+其功能代码简化如下：
+
+class Logger: public ACE_Task<ACE_MT_SYNCH>
+{
+public:
+    void LogMsg(const string& msg)
+    {
+        cout<<endl<<msg<<endl;
+        ACE_OS::sleep(2);
+    }
+};
+
+为了实现记录日志操作的主动执行，我们需要用命令模式将其封装，从而使得记录日志的方法能在合适的时间和地方主动执行，封装方式如下：
+
+class LogMsgCmd: public ACE_Method_Object
+{
+public:
+    LogMsgCmd(Logger *plog,const string& msg)
+    {
+        this->log=plog;
+        this->msg=msg;
+    }
+    int call()
+    {
+        this->log->LogMsg(msg);
+        return 0;
+    }
+private:
+    Logger *log;
+    string msg;
+};
+class Logger: public ACE_Task<ACE_MT_SYNCH>
+{
+public:
+    void LogMsg(const string& msg)
+    {
+        cout<<endl<<msg<<endl;
+        ACE_OS::sleep(2);
+    }
+    LogMsgCmd *LogMsgActive(const string& msg)
+    {
+        new LogMsgCmd(this,msg);
+    }
+};
+
+这里对代码功能做一下简单的说明：
+
+ACE_Method_Object是ACE提供的命令模式借口，命令接口调用函数为int call()，在这里通过它可以把每个操作日志的调用封装为一个LogMsgCmd对象，这样，当原来需要调用LogMsg的方法的地方只要调用LogMsgActive即可生成一个LogMsgCmd对象，由于调用LogMsgActive方法，只是对命令进行了封装，并没有进行日志操作，所以该方法会立即返回。然后再新开一个线程，将LogMsgCmd对象作为参数传入，在该线程中执行LogMsgCmd对象的call方法，从而实现无阻塞调用。
+
+然而，每次对一个LogMsg调用都开启一个新线程，无疑是对资源的一种浪费，实际上我们往往将生成的LogMsgCmd对象插入一个命令队列中，只新开一个命令执行线程依次执行命令队列中的所有命令。并且，为了实现对象的封装，命令队列和命令执行线程往往也封装到Logger对象中，代码如下所示：
+
+#include "ace/OS.h"
+#include "ace/Task.h"
+#include "ace/Method_Object.h"
+#include "ace/Activation_Queue.h"
+#include "ace/Auto_Ptr.h"
+#include <string>
+#include <iostream>
+using namespace std;
+class Logger: public ACE_Task<ACE_MT_SYNCH>
+{
+public:
+    Logger()
+    {
+        this->activate();
+    }
+    int svc();
+    void LogMsg(const string& msg);
+    void LogMsgActive (const string& msg);
+private:
+    ACE_Activation_Queue cmdQueue;    //命令队列
+};
+class LogMsgCmd: public ACE_Method_Object
+{
+public:
+    LogMsgCmd(Logger *plog,const string& msg)
+    {
+        this->log=plog;
+        this->msg=msg;
+    }
+    int call()
+    {
+        this->log->LogMsg(msg);
+        return 0;
+    }
+private:
+    Logger *log;
+    string msg;
+};
+void Logger::LogMsg(const string& msg)
+{
+    cout<<endl<<msg<<endl;
+    ACE_OS::sleep(2);
+}
+//以主动的方式记录日志
+void Logger::LogMsgActive(const string& msg)
+{
+    //生成命令对象，插入到命令队列中
+    cmdQueue.enqueue(new LogMsgCmd(this,msg));
+}
+int Logger::svc()
+{
+    while(true)
+    {
+        //遍历命令队列，执行命令
+        auto_ptr<ACE_Method_Object> mo
+            (this->cmdQueue.dequeue ());
+        if (mo->call () == -1)
+            break;
+    }
+    return 0;
+}
+int main (int argc, ACE_TCHAR *argv[])
+{
+    Logger log;
+    log. LogMsgActive ("hello");
+    ACE_OS::sleep(1);
+    log.LogMsgActive("abcd");
+    while(true)
+        ACE_OS::sleep(1);
+    return 0;
+}
+
+在这里需要注意一下命令队列ACE_Activation_Queue对象，它是线程安全的，使用方法比较简单，这里我也不多介绍了。
+
+主动对象的基本结构就是这样，然而，由于主动对象是异步调用的，又引出了如下两个新问题：
+
+l 方法调用线程如何知道该方法已经执行完成？
+
+l 如何或得方法的返回值？ 
+
+要解决这两个问题，首先得介绍一下ACE_Future对象，ACE_Future是表示一个会在将来被赋值的"期货"对象，可以通过ready()函数查询它是否已经被赋值。该对象创建的时候是未赋值的，后期可以通过set()函数来进行赋值，所赋的值可以通过get()函数来获取。
+
+下面代码演示了它的基本用法：
+
+#include "ace/Future.h"
+#include <string>
+#include <iostream>
+using namespace std;
+void get_info(ACE_Future<string> &fu)
+{
+    string state = fu.ready()?"ready":"not ready";
+    cout<<endl<<state<<endl;
+    if(fu.ready())
+    {
+        string value;
+        fu.get(value);
+        cout<<"value:\t"<<value<<endl;
+    }
+}
+int main(int argc, char *argv[])
+{
+    ACE_Future<string> fu;
+    get_info(fu);
+    fu.set("12345");
+    get_info(fu);
+    return 0;
+}
+
+通过ACE_Future对象来解决上述两个问题的方法如下：
+
+l 首先创建ACE_Future对象用以保留返回值。
+
+l 调用主动命令时将ACE_Future对象作为参数传入，生成的命令对象中保存ACE_Future对象的指针。
+
+l 命令执行线程执行完命令后，将返回值通过set()函数设置到ACE_Future对象中。
+
+l 调用线程可以通过ACE_Future对象的ready()函数查询该命令是否执行完成，如果命令执行完成，则可通过get()函数来获取返回值。
+
+使用的时候要注意一下ACE_Future对象的生命周期。
+
+为了演示了如何获取主动命令的执行状态和结果，我将上篇文章中的代码改动了一下，日志类记录日志后，会将记录的内容作为返回值返回，该返回值会通过ACE_Future对象返回，代码如下：
+
+#include "ace/OS.h"
+#include "ace/Task.h"
+#include "ace/Method_Object.h"
+#include "ace/Activation_Queue.h"
+#include "ace/Auto_Ptr.h"
+#include "ace/Future.h"
+#include <string>
+#include <iostream>
+using namespace std;
+class Logger: public ACE_Task<ACE_MT_SYNCH>
+{
+public:
+    Logger()
+    {
+        this->activate();
+    }
+    int svc();
+    string LogMsg(const string& msg);
+    void LogMsgActive (const string& msg,ACE_Future<string> *result);
+private:
+    ACE_Activation_Queue cmdQueue; //命令队列
+};
+class LogMsgCmd: public ACE_Method_Object
+{
+public:
+    LogMsgCmd(Logger *plog,const string& msg,ACE_Future<string> *result)
+    {
+        this->log=plog;
+        this->msg=msg;
+        this->result=result;
+    }
+    int call()
+    {
+        string reply = this->log->LogMsg(msg);
+        result->set(reply);
+        return 0;
+    }
+private:
+    ACE_Future<string> *result;
+    Logger *log;
+    string msg;
+};
+string Logger::LogMsg(const string& msg)
+{
+    ACE_OS::sleep(2);
+    cout<<endl<<msg<<endl;
+    return msg;
+}
+//以主动的方式记录日志
+void Logger::LogMsgActive(const string& msg,ACE_Future<string> *result)
+{
+    //生成命令对象，插入到命令队列中
+    cmdQueue.enqueue(new LogMsgCmd(this,msg,result));
+}
+int Logger::svc()
+{
+    while(true)
+    {
+        //遍历命令队列，执行命令
+        auto_ptr<ACE_Method_Object> mo
+            (this->cmdQueue.dequeue ());
+        if (mo->call () == -1)
+            break;
+    }
+    return 0;
+}
+void get_info(ACE_Future<string> &fu)
+{
+    string state = fu.ready()?"ready":"not ready";
+    cout<<endl<<state<<endl;
+    if(fu.ready())
+    {
+        string value;
+        fu.get(value);
+        cout<<"value:\t"<<value<<endl;
+    }
+}
+int main (int argc, ACE_TCHAR *argv[])
+{
+    ACE_Future<string> result;
+    Logger log;
+    log.LogMsgActive ("hello",&result);
+    while(true)
+    {
+        get_info(result);
+        if(result.ready())
+            break;
+        ACE_OS::sleep(1);
+    }
+    cout<<endl<<"cmd end"<<endl;
+    while(true)
+        ACE_OS::sleep(1);
+    return 0;
+}
+
+这种查询模式比较简单有效，但存在一个问题：调用线程必须不断轮询ACE_Future对象以获取返回值，这样的效率比较低。可以通过观察者模式解决这个问题：在ACE_Future对象上注册一个观察者，当ACE_Future对象的值发生改变（异步命令执行完成）时主动通知该观察者，从而获取返回值。
+
+ACE中的观察者模式可以通过ACE_Future_Observer来实现，使用方法如下：
+
+#include "ace/Future.h"
+#include <string>
+#include <iostream>
+using namespace std;
+class MyObserver:public ACE_Future_Observer<string>
+{
+    virtual void update (const ACE_Future<string> &future)
+    {
+        string value;
+        future.get(value);
+        cout<<endl<<"change:\t"<<value<<endl;
+    }
+};
+int main(int argc, char *argv[])
+{
+    MyObserver obv;
+    ACE_Future<string> fu;
+    fu.attach(&obv);
+    ACE_OS::sleep(3);
+    fu.set("12345");
+    while(true)
+        ACE_OS::sleep(3);
+    return 0;
+}
+
+通过观察者模式，可以更有效，及时的获取异步命令的返回值,但同时也增加了程序结构的复杂度并且难以调试，使用的时候应该根据需要选取合适的方式。
+
+5.2、Reactor模式
+
+主动对象模式用于降低方法执行和方法调用之间的耦合。该模式描述了另外一种更为透明的任务间通信方法。
+
+反应器（Reactor）：用于事件多路分离和分派的体系结构模式
+
+通常的，对一个文件描述符指定的文件或设备, 有两种工作方式: 阻塞与非阻塞。所谓阻塞方式的意思是指, 当试图对该文件描述符进行读写时, 如果当时没有东西可读,或者暂时不可写, 程序就进入等待状态, 直到有东西可读或者可写为止。而对于非阻塞状态, 如果没有东西可读, 或者不可写, 读写函数马上返回, 而不会等待。
+
+在前面的章节中提到的Tcp通信的例子中，就是采用的阻塞式的工作方式：当接收tcp数据时，如果远端没有数据可以读，则会一直阻塞到读到需要的数据为止。这种方式的传输和传统的被动方法的调用类似，非常直观，并且简单有效，但是同样也存在一个效率问题，如果你是开发一个面对着数千个连接的服务器程序，对每一个客户端都采用阻塞的方式通信，如果存在某个非常耗时的读写操作时，其它的客户端通信将无法响应，效率非常低下。
+
+一种常用做法是：每建立一个Socket连接时，同时创建一个新线程对该Socket进行单独通信（采用阻塞的方式通信）。这种方式具有很高的响应速度，并且控制起来也很简单，在连接数较少的时候非常有效，但是如果对每一个连接都产生一个线程的无疑是对系统资源的一种浪费，如果连接数较多将会出现资源不足的情况。
+
+另一种较高效的做法是：服务器端保存一个Socket连接列表，然后对这个列表进行轮询，如果发现某个Socket端口上有数据可读时（读就绪），则调用该socket连接的相应读操作；如果发现某个Socket端口上有数据可写时（写就绪），则调用该socket连接的相应写操作；如果某个端口的Socket连接已经中断，则调用相应的析构方法关闭该端口。这样能充分利用服务器资源，效率得到了很大提高。
+
+在Socket编程中就可以通过select等相关API实现这一方式。但直接用这些API控制起来比较麻烦，并且也难以控制和移植，在ACE中可以通过Reactor模式简化这一开发过程。
+
+反应器本质上提供一组更高级的编程抽象，简化了事件驱动的分布式应用的设计和实现。除此而外，反应器还将若干不同种类的事件的多路分离集成到易于使用的API中。特别地，反应器对基于定时器的事件、信号事件、基于I/O端口监控的事件和用户定义的通知进行统一地处理。
+
+ACE中的反应器与若干内部和外部组件协同工作。其基本概念是反应器框架检测事件的发生（通过在OS事件多路分离接口上进行侦听），并发出对预登记事件处理器（event handler）对象中的方法的"回调"（callback）。该方法由应用开发者实现，其中含有应用处理此事件的特定代码。
+
+使用ACE的反应器，只需如下几步：
+
+l 创建事件处理器，以处理他所感兴趣的某事件。
+
+l 在反应器上登记，通知说他有兴趣处理某事件，同时传递他想要用以处理此事件的事件处理器的指针给反应器。
+
+随后反应器框架将自动地：
+
+l 在内部维护一些表，将不同的事件类型与事件处理器对象关联起来。
+
+l 在用户已登记的某个事件发生时，反应器发出对处理器中相应方法的回调。
+
+反应器模式在ACE中被实现为ACE_Reactor类，它提供反应器框架的功能接口。
+
+如上面所提到的，反应器将事件处理器对象作为服务提供者使用。反应器内部记录某个事件处理器的特定事件的相关回调方法。当这些事件发生时，反应器会创建这种事件和相应的事件处理器的关联。
+
+l 事件处理器
+事件处理器就是需要通过轮询发生事件改变的对象列表中的对象，如在上面的例子中就是连接的客户端，每个客户端都可以看成一个事件处理器。
+
+l 回调事件
+就是反应器支持的事件，如Socket读就绪，写就绪。拿上面的例子来说，如果某个客户端（事件处理器）在反应器中注册了读就绪事件，当客户端给服务器发送一条消息的时候，就会触发这个客户端的数据可读的回调函数。
+
+在反应器框架中，所有应用特有的事件处理器都必须由ACE_Event_Handler的抽象接口类派生。可以通过重载相应的"handle_"方法实现相关的回调方法。
+
+使用ACE_Reactor基本上有三个步骤：
+
+l 创建ACE_Event_Handler的子类，并在其中实现适当的"handle_"方法，以处理你想要此事件处理器为之服务的事件类型。
+
+l 通过调用反应器对象的register_handler()，将你的事件处理器登记到反应器。
+
+l 在事件发生时，反应器将自动回调相应的事件处理器对象的适当的handle_"方法。
+
+下面我就以一个Socket客户端的例子为例简单的说明反应器的基本用法。
+
+#include <ace/OS.h>
+#include <ace/Reactor.h>
+#include <ace/SOCK_Connector.h>
+#include <string>
+#include <iostream>
+using namespace std;
+class MyClient:public ACE_Event_Handler
+{
+public:
+    bool open()
+    {
+        ACE_SOCK_Connector connector;
+        ACE_INET_Addr addr(3000,"127.0.0.1");
+        ACE_Time_Value timeout(5,0);
+        if(connector.connect(peer,addr,&timeout) != 0)
+        {
+            cout<<endl<<"connecetd fail";
+            return false;
+        }
+        ACE_Reactor::instance()->register_handler(this,ACE_Event_Handler::READ_MASK);
+        cout<<endl<<"connecetd ";
+        return true;
+    }
+    ACE_HANDLE get_handle(void) const
+    {
+        return peer.get_handle();
+    }
+    int handle_input (ACE_HANDLE fd)
+    {
+        int rev=0;
+        ACE_Time_Value timeout(5,0);
+        if((rev=peer.recv(buffer,1000,&timeout))>0)
+        {
+            buffer[rev]='\0';
+            cout<<endl<<"rev:\t"<<buffer<<endl;
+        }
+        return 3;
+    }
+private:
+    ACE_SOCK_Stream peer;
+    char buffer[1024];
+};
+int main(int argc, char *argv[])
+{
+    MyClient client;
+    client.open();
+    while(true)
+    {
+        ACE_Reactor::instance()->handle_events();
+    }
+    return 0;
+}
+
+在这个例子中，客户端连接上服务器后，通过ACE_Reactor::instance()->register_handler(this,ACE_Event_Handler::READ_MASK)注册了一个读就绪的回调函数，当服务器端给客户端发消息的时候，会自动触发handle_input()函数，将接收到的信息打印出来。
+
+下面对如何在Socket通信中使用反应器做进一步的介绍。
+
+5.3、接收者-连接(Reactor-Connect)者模式
+
+接受器－连接器设计模式（Acceptor-Connector）使分布式系统中的连接建立及服务初始化与一旦服务初始化后所执行的处理去耦合。
+
+这样的去耦合通过三种组件来完成：acceptor、connector 和 servicehandler（服务处理器）。
+
+l 连接器主动地建立到远地接受器组件的连接，并初始化服务处理器来处理在连接上交换的数据。
+
+l 接受器被动地等待来自远地连接器的连接请求，在这样的请求到达时建立连接，并初始化服务处理器来处理在连接上交换的数据。
+
+l 初始化的服务处理器执行应用特有的处理，并通过连接器和接受器组件建立的连接来进行通信。
+
+5.3.1. 服务处理器（Service Handler）：
+
+Service Handler 实现应用服务，通常扮演客户角色、服务器角色，或同时扮演这两种角色。它提供挂钩方法，由 Acceptor 或 Connector 调用，以在连接建立时启用应用服务。此外，Service Handler 还提供数据模式传输端点，其中封装了一个 I/O 句柄。一旦连接和初始化后，该端点被 Service Handler 用于与和其相连的对端交换数据。
+
+5.3.2. 接受器（Acceptor）：
+
+Acceptor 是一个工厂，实现用于被动地建立连接并初始化与其相关联的 Service Handler 的策略。此外，Acceptor 包含有被动模式的传输端点工厂，它创建新的数据模式端点，由 Service Handler 用于在相连的对端间传输数据。通过将传输端点工厂绑定到网络地址，比如 Acceptor 在其上侦听的 TCP 端口号，Acceptor的 open 方法对该工厂进行初始化。
+一旦初始化后，被动模式的传输端点工厂侦听来自对端的连接请求。当连接请求到达时，Acceptor 创建 Service Handler，并使用它的传输端点工厂来将新连接接受进Service Handler 中。
+
+5.3.3. 连接器（Connector）：
+
+Connector 是一个工厂，实现用于主动地建立连接并初始化与其相关联的 Service Handler 的策略。它提供方法，由其发起到远地 Acceptor 的连接。同样地，它还提供另一个方法，完成对 Service Handler 的启用；该处理器的连接是被同步或异步地发起的。Connector 使用两个分开的方法来透 明地支持异步连接建立。
+
+5.3.4. 分派器（Dispatcher）：
+
+为 Acceptor，Dispatcher 将在一或多个传输端点上接收到的连接请求多路分离给适当的 Acceptor。Dispatcher允许多个 Acceptor 向其登记，以侦听同时在不同端口上从不同对端而来的连接。 为 Connector，Dispatcher 处理异步发起的连接的完成。在这种情况下，当异步连接被建立时，Dispatcher 回调 Connector。Dispatcher 允许多个 Service Handler 通过一个 Connector 来异步地发起和完成它们 的连接。注意对于同步连接建立，Dispatcher 并不是必需的，因为发起连接的线程控制也完成服务服务处 理器的启用。
+Dispatcher 通常使用事件多路分离模式来实现，这些模式由反应器（Reactor）或前摄器（Proactor） 来提供，它们分别处理同步和异步的多路分离。同样地，Dispatcher 也可以使用主动对象（Active Obj ect）模式来实现为单独的线程或进程。
+
+Acceptor 组件协作
+
+Acceptor 和 Service Handler 之间的协作。这些协作被划分为三个阶段：
+
+1. 端点初始化阶段：
+
+为被动地初始化连接，应用调用 Acceptor 的 open 方法。该方法创建被动模式的传 输端点，将其绑定到网络地址，例如，本地主机的 IP 地址和 TCP 端口号，并随后侦听来自对端 Connector 的连接请求。其次，open 方法将 Acceptor 对象登记到 Dispatcher，以使分派器能够在连接事件 到达时回调 Acceptor。最后，应用发起 Dispatcher 的事件循环，等待连接请求从对端 Connector 到来。
+
+2. 服务初始化阶段：
+
+当连接请求到达时，Dispatcher 回调 Acceptor 的accept 方法。该方法装配以下活动 所必需的资源：
+
+l 创建新的 Service Handler，
+
+l 使用它的被动模式传输端点工厂来将连接接受进 该处理器的数据模式传输端点中，
+
+l 通过调用 Service Handler 的 open 挂钩将其启用。Servic e Handler 的 open 挂钩可以执行服务特有的初始化，比如分配锁、派生线程、打开日志文件，和/或将 该 Service Handler 登记到 Dispatcher。
+
+3. 服务处理阶段：
+
+在连接被动地建立和 Service Handler 被初始化后，服务处理阶段开始了。在此阶段， 应用级通信协议，比如 HTTP 或 IIOP，被用于在本地 Service Handler 和与其相连的远地 Peer 之间、 经由前者的 peer_stream_端点交换数据。当交换完成，可关闭连接和 Service Handler，并释放资源。
+
+Connector 组件协作
+
+Connector 组件可以使用同步和异步两种方式来初始化它的 Service Handle，这里仅介绍一下同步时的协作情况。
+
+同步的 Connector 情况中的参与者之间的协作可被划分为以下三个阶段：
+
+l 连接发起阶段：
+为在 Service Handler 和它的远地 Peer 之间发起连接，应用调用 Connector 的 connect 方法。该方法阻塞调用线程的线程控制、直到连接同步完成，以主动地建立连接。
+
+l 服务初始化阶段：
+在连接完成后，Connector 的 connect 方法调用 complete 方法来启用 Service Handl er。complete 方法通过调用 Service_Handler 的 open 挂钩方法来完成启用；open 方法执行服务特有的 初始化。
+
+l 服务处理阶段：
+此阶段与 Service Handler 被 Acceptor 创建后所执行的服务处理阶段相类似。特别地， 一旦 Service Handler 被启用，它使用与和其相连接的远地 Service Handler 交换的数据来执行应用特 有的服务处理。
+
+实现及运行一般步骤：
+
+l 创建 Service Handler；
+
+l 被动地或主动地将 Service Handler 连接到它们的远地对端；以及
+
+l 一旦连接，启用 Service Handler。
+
+主要角色：Service Handler（服务处理器）、Acceptor 和 Connector。
+
+服务处理器：该抽象类继承自 Event_Handler，并为客户、服务器或同时扮演两种角色的组件所提供 的服务处理提供通用接口。应用必须通过继承来定制此类，以执行特定类型的服务。Service Handler 接口如下所示：
+
+template <class PEER_STREAM>
+class Service_Handler : public Event_Handler
+{
+public:
+    //连接成功后的初始化入口函数 (子类定义).
+    virtual int open (void) = 0;
+    //返回通信流的引用
+    PEER_STREAM &peer (void)
+    {
+        return peer_stream_;
+    }
+};
+
+一旦 Acceptor 或 Connector 建立了连接，它们调用 Service Handler 的 open 挂钩。该纯虚方法必须被 Concrete Service Handler 子类定义；后者执行服务特有的初始化和后续处理。
+
+连接器：该抽象类实现主动连接建立和初始化 Service Handler 的通用策略。它的接口如下所示：
+
+template <class SERVICE_HANDLER,class PEER_CONNECTOR>
+class Connector : public Event_Handler
+{
+public:
+    enum Connect_Mode
+    {
+        SYNC, //以同步方式连接
+        ASYNC //以异步方式连接
+    };
+// 主动连接并激活服务处理器
+    int connect (SERVICE_HANDLER *sh,
+        const PEER_CONNECTOR::PEER_ADDR &addr,
+        Connect_Mode mode);
+protected:
+    //定义连接激活策略
+    virtual int connect_service_handler(SERVICE_HANDLER *sh,
+        const PEER_CONNECTOR::PEER_ADDR &addr,
+        Connect_Mode mode);
+    // Defines the handler's concurrency strategy.
+    virtual int activate_service_handler(SERVICE_HANDLER *sh);
+    // 当以异步方式连接完成时激活服务处理器
+    virtual int complete (HANDLE handle);
+private:
+    // IPC mechanism that establishes
+    // connections actively.
+    PEER_CONNECTOR connector_;
+    };
+
+Conncetor 通过特定类型的 PEER CONNECTOR 和 SERVICE HANDLER 被参数化。PEER CONNECTO R 提供的传输机制被 Connector 用于主动地建立连接，或是同步地、或是异步地。SERVICE HANDLER提供的服务对与相连的对端交换的数据进行处理。C++参数化类型被用于使（1）连接建立策略与（2）服务处理器类型、网络编程接口和传输层连接协议去耦合。
+
+参数化类型是有助于提高可移植性的实现决策。例如，它们允许整体地替换 Connector 所用的 IPC 机 制。这使得 Connector 的连接建立代码可在含有不同网络编程接口（例如，有 socket，但没有 TLI；反之 亦然）的平台间进行移植。
+
+Service Handler 的 open 挂钩在连接成功建立时被调用。
+
+接受器（Acceptor）：该抽象类为被动连接建立和初始化 Service Handler 实现通用的策略。Acceptor 的接 口如下所示：
+
+template <class SERVICE_HANDLER,
+class PEER_ACCEPTOR>
+class Acceptor : public Event_Handler
+{
+public:
+    // Initialize local_addr transport endpoint factory
+    // and register with Initiation_Dispatcher Singleton.
+    virtual int open(const PEER_ACCEPTOR::PEER_ADDR &local_addr);
+    // Factory Method that creates, connects, and
+    // activates SERVICE_HANDLER's.
+    virtual int accept (void);
+protected:
+    //定义服务处理器的创建策略
+    virtual SERVICE_HANDLER *make_service_handler (void);
+    // 定义服务处理器的连接策略
+    virtual int accept_service_handler(SERVICE_HANDLER *);
+    //定义服务处理器的激活策略
+    virtual int activate_service_handler(SERVICE_HANDLER *);
+    // Demultiplexing hooks inherited from Event_Handler,
+    // which is used by Initiation_Dispatcher for
+    // callbacks.
+    virtual HANDLE get_handle (void) const;
+    virtual int handle_close (void);
+private:
+    // IPC mechanism that establishes
+    // connections passively.
+    PEER_ACCEPTOR peer_acceptor_;
+};
+
+Acceptor 通过特定类型的 PEER ACCEPTOR 和 SERVICE HANDLER 被参数化。PEER ACCEPTOR 提供的传输机制被 Acceptor 用于被动地建立连接。SERVICE HANDLER 提供的服务对与远地对端交换的 数据进行处理。注意 SERVICE HANDLER 是由应用层提供的具体的服务处理器。
+
+参数化类型使 Acceptor 的连接建立策略与服务处理器的类型、网络编程接口及传输层连接发起协议去耦合。就如同 Connector 一样，通过允许整体地替换 Acceptor 所用的机制，参数化类型的使用有助于提高可移植性。这使得连接建立代码可在含有不同网络编程接口（比如有 socket，但没有 TLI；反之亦然）的平台间移植。
+
+make_service_handler 工厂方法定义 Acceptor 用于创建 SERVICE HANDLER 的缺省策略。如下所示：
+
+template <class SH, class PA> SH *
+Acceptor<SH, PA>::make_service_handler (void)
+{
+    return new SH;
+}
+
+缺省行为使用了"请求策略"（demand strategy），它为每个新连接创建新的 SERVICE HANDLER。但是， Acceptor 的子类可以重定义这一策略，以使用其他策略创建 SERVICE HANDLE，比如创建单独的单体 （Singleton）[10]或从共享库中动态链接 SERVICE HANDLER。
+
+accept_service_handler 方法在下面定义 Acceptor 所用的 SERVICE HANDLER 连接接受策略：
+
+template <class SH, class PA> int
+Acceptor<SH, PA>::accept_service_handler(SH *handler)
+{
+    peer_acceptor_->accept (handler->peer ());
+}
+
+缺省行为委托 PEER ACCEPTOR 所提供的 accept 方法。子类可以重定义 accept_service_handler 方法，以 执行更为复杂的行为，比如验证客户的身份，以决定是接受还是拒绝连接。
+
+Activate_service_handler 定义 Acceptor 的 SERVICE HANDLER 并发策略：
+
+程序示例：
+
+在ACE中，默认的服务处理器是ACE_Svc_Handler，这也是一个模版类，可以通过相关的参数特化。由于ACE_Svc_Handler继承自ACE_Task和ACE_Event_Handler，功能相当强大，同时也存在一定开销，如果需要减小开销可以自己写一个仅继承自ACE_Event_Handler的服务处理器。
+
+为了演示简单，我这里就以一个EchoServer的服务器端和客户端为例，其中接收器和连接器都采用缺省策略，并没有进行重载。
+
+服务器端：
+
+#include "ace/Reactor.h"
+#include "ace/Svc_Handler.h"
+#include "ace/Acceptor.h"
+#include "ace/Synch.h"
+#include "ace/SOCK_Acceptor.h"
+class My_Svc_Handler;
+typedef ACE_Acceptor<My_Svc_Handler,ACE_SOCK_ACCEPTOR> MyAcceptor;
+class My_Svc_Handler:
+    public ACE_Svc_Handler <ACE_SOCK_STREAM,ACE_NULL_SYNCH>
+{
+public:
+    int open(void*)
+    {
+        ACE_OS::printf("\nConnection established\n");
+        //注册相应事件
+        ACE_Reactor::instance()->register_handler(this,
+            ACE_Event_Handler::READ_MASK);
+        return 0;
+    }
+    int handle_input(ACE_HANDLE)
+    {
+        int rev = peer().recv(data,1024);
+        if(rev == 0)
+        {
+            delete this;
+        }
+        else
+        {
+            data[rev]='\0';
+            ACE_OS::printf("<<rev:\t %s\n",data);
+            peer().send(data,rev+1);
+            return 0;
+        }
+    }
+private:
+    char data[1024];
+};
+int main(int argc, char* argv[])
+{
+    ACE_INET_Addr addr(3000);
+    MyAcceptor acceptor(addr,ACE_Reactor::instance());
+    while(1)
+        ACE_Reactor::instance()->handle_events();
+}
+
+客户端：
+
+#include "ace/Reactor.h"
+#include "ace/Svc_Handler.h"
+#include "ace/Connector.h"
+#include "ace/Synch.h"
+#include "ace/SOCK_Connector.h"
+class My_Svc_Handler;
+typedef ACE_Connector<My_Svc_Handler,ACE_SOCK_CONNECTOR> MyConnector;
+class My_Svc_Handler:
+    public ACE_Svc_Handler <ACE_SOCK_STREAM,ACE_NULL_SYNCH>
+{
+public:
+    int open(void*)
+    {
+        ACE_OS::printf("\nConnection established\n");
+        //注册相应事件
+        ACE_Reactor::instance()->register_handler(this,
+            ACE_Event_Handler::READ_MASK);
+        return 0;
+    }
+    int handle_input(ACE_HANDLE)
+    {
+        int rev = peer().recv(data,1024);
+        if(rev == 0)
+        {
+            delete this;
+        }
+        else
+        {
+            data[rev]='\0';
+            ACE_OS::printf("<<rev:\t %s\n",data);
+            return 0;
+        }
+    }
+    int sendData(char *msg)
+    {
+        ACE_OS::printf("<<send:\t %s\n",msg);
+        return peer().send(msg,strlen(msg));   
+    }
+private:
+    char data[1024];
+};
+int main(int argc, char* argv[])
+{
+    ACE_INET_Addr addr(3000,"192.168.1.142");
+    My_Svc_Handler *svchandler = new My_Svc_Handler();
+    MyConnector connector;
+    if(connector.connect(svchandler,addr)==-1)
+    {
+        ACE_OS::printf("Connect fail");
+    }
+    svchandler->sendData("hello wrold");
+    while(1)
+        ACE_Reactor::instance()->handle_events();
+} 
+
+5.4、Proactor模式
+
+当 OS 平台支持异步操作时，一种高效而方便的实现高性能 Web 服务器的方法是使用前摄式事件分派。使用前摄式事件分派模型设计的 Web 服务器通过一或多个线程控制来处理异步操作的完成。这样，通过集成完成事件多路分离（completion event demultiplexing）和事件处理器分派，前摄器模式简化了异步的 Web 服务器。
+
+异步的 Web 服务器将这样来利用前摄器模式：首先让 Web 服务器向 OS 发出异步操作，并将回调方法登记到 Completion Dispatcher（完成分派器），后者将在操作完成时通知 Web 服务器。于是 OS 代表 Web 服务器执行操作，并随即在一个周知的地方将结果排队。Completion Dispatcher 负责使完成通知出队，并执行适当的、含有应用特有的 Web 服务器代码的回调。
+
+使用前摄器模式的主要优点是可以启动多个并发操作，并可并行运行，而不要求应用必须拥有多个线程。操作被应用异步地启动，它们在 OS 的 I/O 子系统中运行直到完成。发起操作的线程现在可以服务 另外的请求了。
+
+在ACE中，可以通过ACE_Proactor实现前摄器模式。实现方式如下。
+
+5.4.1、创建服务处理器：
+
+Proactor框架中服务处理器均派生自ACE_Service_Handler，它和Reactor框架的事件处理器非常类似。当发生IO操作完成事件时，会触发相应的事件完成会调函数。
+
+5.4.2、实现服务处理器IO操作
+
+Proactor框架中所有的IO操作都由相应的异步操作类来完成，这些异步操作类都继承自ACE_Asynch_Operation。常用的有以下几种。
+
+l ACE_Asynch_Read_Stream, 提供从TCP/IP socket连接中进行异步读操作.
+
+l ACE_Asynch_Write_Stream, 提供从TCP/IP socket连接中进行异步写操作.
+
+使用这些操作类的一般方式如下：
+
+l 初始化
+将相关的操作注册到服务处理器中，一般可通过调用其open方法实现。
+
+l 发出IO操作
+发出异步IO操作请求，该操作不会阻塞，具体的IO操作过程由操作系统异步完成。
+
+l IO操作完成回调处理
+异步IO操作完成后，OS会触发服务处理器中的相应回调函数，可通过该函数的ACE_Asynch_Result参数获取相应的返回值。
+
+5.2.3、使用连接器或接受器和远端进行连接
+
+ACE为Proactor框架提供了两个工厂类来建立TCP/IP连接。
+
+l ACE_Asynch_Acceptor, 用于被动地建立连接
+
+l ACE_Asynch_Connector 用于主动地建立连接
+
+当远端连接建立时，连接器或接受器便会创建相应的服务处理器，从而可以实现服务处理。
+
+5.2.4、启动Proactor事件分发处理
+
+启动事件分发处理只需如下调用：
+
+while(true)
+ACE_Proactor::instance()->handle_events();
+
+2.4.5、程序示例
+
+服务器端：
+
+服务器端简单的实现了一个EchoServer，流程如下：当客户端建立连接时，首先发出一个异步读的异步请求，当读完成时，将所读的数据打印出来，并发出一个新的异步请求。
+
+#include "ace/Message_Queue.h"
+#include "ace/Asynch_IO.h"
+#include "ace/OS.h"
+#include "ace/Proactor.h"
+#include "ace/Asynch_Acceptor.h"
+class HA_Proactive_Service : public ACE_Service_Handler
+{
+public:
+~HA_Proactive_Service ()
+{
+if (this->handle () != ACE_INVALID_HANDLE)
+ACE_OS::closesocket (this->handle ());
+}
+virtual void open (ACE_HANDLE h, ACE_Message_Block&)
+{
+this->handle (h);
+if (this->reader_.open (*this) != 0 )
+     {
+         ACE_ERROR ((LM_ERROR, ACE_TEXT ("%p\n"),
+             ACE_TEXT ("HA_Proactive_Service open")));
+delete this;
+return;
+     }
+     ACE_Message_Block *mb = new ACE_Message_Block(buffer,1024);
+if (this->reader_.read (*mb, mb->space ()) != 0)
+     {
+         ACE_OS::printf("Begin read fail\n");
+delete this;
+return;
+     }
+return;
+}
+//异步读完成后会调用此函数
+virtual void handle_read_stream
+(const ACE_Asynch_Read_Stream::Result &result)
+{
+     ACE_Message_Block &mb = result.message_block ();
+if (!result.success () || result.bytes_transferred () == 0)
+     {
+         mb.release ();
+delete this;
+return;
+     }
+     mb.copy("");    //为字符串添加结束标记'\0'
+     ACE_OS::printf("rev:\t%s\n",mb.rd_ptr());
+     mb.release();
+     ACE_Message_Block *nmb = new ACE_Message_Block(buffer,1024);
+if (this->reader_.read (*nmb, nmb->space ()) != 0)
+return;
+}
+private:
+ACE_Asynch_Read_Stream reader_;
+char buffer[1024];
+};
+int main(int argc, char *argv[])
+{
+int port=3000;
+    ACE_Asynch_Acceptor<HA_Proactive_Service> acceptor;
+if (acceptor.open (ACE_INET_Addr (port)) == -1)
+return -1;
+while(true)
+        ACE_Proactor::instance ()->handle_events ();
+return 0;
+}
+
+客户端：
+
+客户端代码比较简单，就是每隔1秒钟将当前的系统时间转换为字符串形式通过异步形式发送给服务器，发送完成后，释放时间字符的内存空间。
+
+#include "ace/Message_Queue.h"
+#include "ace/Asynch_IO.h"
+#include "ace/OS.h"
+#include "ace/Proactor.h"
+#include "ace/Asynch_Connector.h"
+class HA_Proactive_Service : public ACE_Service_Handler
+{
+public:
+~HA_Proactive_Service ()
+{
+if (this->handle () != ACE_INVALID_HANDLE)
+ACE_OS::closesocket (this->handle ());
+}
+virtual void open (ACE_HANDLE h, ACE_Message_Block&)
+{
+this->handle (h);
+if (this->writer_.open (*this) != 0 )
+     {
+         ACE_ERROR ((LM_ERROR, ACE_TEXT ("%p\n"),
+             ACE_TEXT ("HA_Proactive_Service open")));
+delete this;
+return;
+     }
+     ACE_OS::printf("connceted");
+for(int i=0;i<10;i++)    //每隔秒中发送时间至服务器
+     {
+         ACE_OS::sleep(1);
+         time_t now = ACE_OS::gettimeofday().sec();
+char *time = ctime(&now);        //获取当前时间的字符串格式
+         ACE_Message_Block *mb = new ACE_Message_Block(100);
+         mb->copy(time);
+if (this->writer_.write(*mb,mb->length()) !=0)
+         {
+             ACE_OS::printf("Begin read fail\n");
+delete this;
+return;
+         }
+     }
+return;
+}
+//异步写完成后会调用此函数
+virtual void handle_write_dgram
+(const ACE_Asynch_Write_Stream::Result &result)
+{
+     ACE_Message_Block &mb = result.message_block ();
+     mb.release();
+return;
+}
+private:
+ACE_Asynch_Write_Stream writer_;
+};
+int main(int argc, char *argv[])
+{
+    ACE_INET_Addr addr(3000,"192.168.1.142");
+    HA_Proactive_Service *client = new HA_Proactive_Service();
+    ACE_Asynch_Connector<HA_Proactive_Service> connector;
+    connector.open();
+if (connector.connect(addr) == -1)
+return -1;
+while(true)
+        ACE_Proactor::instance ()->handle_events ();
+return 0;
+}
+
+6. ACE的消息存放对象
+
+2.1、ACE Lock类属
+
+锁类属包含的类包装简单的锁定机制，比如互斥体、信号量、读／写互斥体和令牌等。这里我就以互斥体为例简单的介绍一下其使用方法，对其它的锁类进行一些简单的说明。
+
+ACE_Message_Block在Ace中用来表示消息的存放空间，可用做网络通信中的消息缓冲区，使用非常频繁，下面将在如下方简单的介绍一下ACE_Message_Block相关功能。
+
+l 创建消息块
+
+l 释放消息块
+
+l 从消息块中读写数据
+
+l 数据的拷贝
+
+l 其它常用函数
+
+6.1、创建消息块
+
+创建消息块的方式比较灵活，常用的有以下几种方式 ：
+
+1、直接给消息块分配内存空间创建。
+
+ACE_Message_Block *mb = new ACE_Message_Block (30);
+
+2、共享底层数据块创建。
+
+char buffer[100];
+ACE_Message_Block *mb = new ACE_Message_Block (buffer,30);
+
+这种方式共享底层的数据块，被创建的消息块并不拷贝该数据，也不假定自己拥有它的所有权。在消息块mb被销毁时，相关联的数据缓冲区data将不会被销毁。这是有意义的：消息块没有拷贝数据，因此内存也不是它分配的，这样它也不应该负责销毁它。
+
+3、通过duplicate()函数从已有的消息块中创建副本。
+
+ACE_Message_Block *mb = new ACE_Message_Block (30);
+ACE_Message_Block *mb2 = mb->duplicate();
+
+这种方式下，mb2和mb共享同一数据空间，使用的是ACE_Message_Block的引用计数机制。它返回指向要被复制的消息块的指针，并在内部增加内部引用计数。
+
+4、通过clone()函数从已有的消息块中复制。
+
+ACE_Message_Block *mb = new ACE_Message_Block (30);
+ACE_Message_Block *mb2 = mb->clone();
+
+clone()方法实际地创建整个消息块的新副本，包括它的数据块和附加部分；也就是说，这是一次"深拷贝"。
+
+6.2、释放消息块
+
+一旦使用完消息块，程序员可以调用它的release()方法来释放它。
+
+l 如果消息数据内存是由该消息块分配的，调用release()方法就也会释放此内存。
+
+l 如果消息块是引用计数的，release()就会减少计数，直到到达０为止；之后消息块和与它相关联的数据块才从内存中被移除。
+
+l 如果消息块是通过共享已分配的底层数据块创建的，底层数据块不会被释放。
+
+无论消息块是哪种方式创建的，只要在使用完后及时调用release()函数，就能确保相应的内存能正确的释放。
+
+6.3、从消息块中读写数据
+
+ACE_Message_Block提供了两个指针函数以供程序员进行读写操作，rd_ptr()指向可读的数据块地址，wr_ptr()指向可写的数据块地址，默认情况下都执行数据块的首地址。下面的例子简单了演示它的使用方法。
+
+#include "ace/Message_Queue.h"
+#include "ace/OS.h"
+int main(int argc, char *argv[])
+{
+    ACE_Message_Block *mb = new ACE_Message_Block (30);
+    ACE_OS::sprintf(mb->wr_ptr(),"%s","hello");
+    ACE_OS::printf("%s\n",mb->rd_ptr ());
+    mb->release();
+return 0;
+}
+
+注意：这两个指针所指向的位置并不会自动移动，在上面的例子中，函数执行完毕后，执行的位置仍然是最开始的0，而不是最新的可写位置5，程序员需要通过wr_ptr(5)函数手动移动写指针的位置。
+
+6.4、数据的拷贝
+
+一般的数据的拷贝可以通过函数来实现数据的拷贝，copy()还会保证wr_ptr()的更新，使其指向缓冲区的新末尾处。
+
+下面的例子演示了copy()函数的用法。
+
+    mb->copy("hello");
+    mb->copy("123",4);
+
+注意：由于c++是以'\0'作为字符串结束标志的，对于上面的例子，底层数据块中保存的是"hello\0123\0"，而用ACE_OS::printf("%s\n",mb->rd_ptr ());打印出来的结果是"hello"，使用copy函数进行字符串连接的时候需要注意。
+
+6.5、其它常用函数
+
+length() 返回当前的数据长度
+
+next() 获取和设置下一个ACE_Message_Block的链接。（用来建立消息队列非常有用）
+
+space() 获取剩余可用空间大小
+
+size() 获取和设置数据存储空间大小。
+
+注意:
+
+这里说一下ACE::read_n 的行为:
+
+ACE::read_n 会试图读取buf长度的数据.如果遇到文件结束(EOF)或者错误则返回 0 或 -1；如果先到达了buf长度则返回数据区长度；问题来了:如果数据读取成功,但是没有到达buf长度怎么办? 如何拿到已读数据的长度? 这就要用到ACE::read_n的第4个参数,这个参数记录了实际读取的数据长度.
+
+在上面的code里还用到了几个函数:
+
+ACE_Message_Block::size 指数据区的长度, 就是初始化时指定的长度,这里是10;
+
+ACE_Message_Block::length 指数据的长度, 是 wr_ptr() - rd_ptr()的结果.
+
+注意数据区和数据的区别....
+
+ACE_Message_Block::cont ACE_Message_Block还实现了内存的链表结构；
+
+7. 总结
+
+一般文章整理的只是ACE的基础部分，如果需要深入了解ACE还需要通过查看源代码以进一步了解。可分为如下模块：
+
+1. 并发和同步
+
+2. 进程间通信(IPC)
+
+3. 内存管理
+
+4. 定时器
+
+5. 信号
+
+6. 文件系统管理
+
+7. 线程管理
+
+8. 事件多路分离和处理器分派
+
+9. 连接建立和服务初始化
+
+10. 软件的静态和动态配置、重配置
+
+11. 分层协议构建和流式框架
+
+12. 分布式通信服务：名字、日志、时间同步、事件路由和网络锁定。
+
+本文无法一一猎及，望谅。 

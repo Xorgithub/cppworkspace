@@ -1,0 +1,38 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 10.00
+# Visual Studio 2008
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "io_iocp", "io_iocp\io_iocp.vcproj", "{1A65F0FC-1A9E-498A-BFC5-164075AB4DD3}"
+EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "iocpserver", "iocpserver\iocpserver.vcproj", "{3DB0EE71-90B5-4EBF-832C-E3A81404EF8E}"
+EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "iocpclient", "iocpclient\iocpclient.vcproj", "{F553A746-2BED-42BA-A5B6-F649535F705C}"
+EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "iocp_server", "iocp_server\iocp_server.vcproj", "{83EA5D93-84AB-4E92-B551-D76D80AA4121}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Win32 = Debug|Win32
+		Release|Win32 = Release|Win32
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{1A65F0FC-1A9E-498A-BFC5-164075AB4DD3}.Debug|Win32.ActiveCfg = Debug|Win32
+		{1A65F0FC-1A9E-498A-BFC5-164075AB4DD3}.Debug|Win32.Build.0 = Debug|Win32
+		{1A65F0FC-1A9E-498A-BFC5-164075AB4DD3}.Release|Win32.ActiveCfg = Release|Win32
+		{1A65F0FC-1A9E-498A-BFC5-164075AB4DD3}.Release|Win32.Build.0 = Release|Win32
+		{3DB0EE71-90B5-4EBF-832C-E3A81404EF8E}.Debug|Win32.ActiveCfg = Debug|Win32
+		{3DB0EE71-90B5-4EBF-832C-E3A81404EF8E}.Debug|Win32.Build.0 = Debug|Win32
+		{3DB0EE71-90B5-4EBF-832C-E3A81404EF8E}.Release|Win32.ActiveCfg = Release|Win32
+		{3DB0EE71-90B5-4EBF-832C-E3A81404EF8E}.Release|Win32.Build.0 = Release|Win32
+		{F553A746-2BED-42BA-A5B6-F649535F705C}.Debug|Win32.ActiveCfg = Debug|Win32
+		{F553A746-2BED-42BA-A5B6-F649535F705C}.Debug|Win32.Build.0 = Debug|Win32
+		{F553A746-2BED-42BA-A5B6-F649535F705C}.Release|Win32.ActiveCfg = Release|Win32
+		{F553A746-2BED-42BA-A5B6-F649535F705C}.Release|Win32.Build.0 = Release|Win32
+		{83EA5D93-84AB-4E92-B551-D76D80AA4121}.Debug|Win32.ActiveCfg = Debug|Win32
+		{83EA5D93-84AB-4E92-B551-D76D80AA4121}.Debug|Win32.Build.0 = Debug|Win32
+		{83EA5D93-84AB-4E92-B551-D76D80AA4121}.Release|Win32.ActiveCfg = Release|Win32
+		{83EA5D93-84AB-4E92-B551-D76D80AA4121}.Release|Win32.Build.0 = Release|Win32
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+EndGlobal

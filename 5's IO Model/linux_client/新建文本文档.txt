@@ -1,0 +1,5 @@
+D:\Qt\4.8.6\include;
+C:\Program Files (x86)\Microsoft Visual Studio 9.0\VC\include;
+C:\Program Files (x86)\Microsoft Visual Studio 9.0\VC\atlmfc\include;
+c:\Program Files\Microsoft SDKs\Windows\v6.0A\include;
+c:\Program Files\Microsoft SDKs\Windows\v6.0A\include;
